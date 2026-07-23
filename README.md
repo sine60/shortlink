@@ -11,8 +11,6 @@
 - 网站运行目录指向项目根目录，**默认文档设为 `index.php`**
 - 数据库使用 SQLite，无需单独安装 MySQL
 
-> 本项目为 PHP 版本，根目录下的 `server.js` / `package.json` 是另一套 Node 版实现，部署 PHP 版时无需理会，也无需安装 `node_modules`。
-
 ---
 
 ## 二、全新部署步骤
