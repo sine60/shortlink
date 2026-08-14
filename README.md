@@ -71,7 +71,28 @@ chmod -R 755 database
 
 ---
 
-## 四、关键注意事项（别漏）
+## 四、升级 / 覆盖更新（不丢数据）
+
+本系统升级是**非破坏性**的：
+
+- 代码用 `CREATE TABLE IF NOT EXISTS` 建表，绝不会删表；
+- 首次访问时会 `ALTER TABLE links ADD COLUMN` 自动补齐缺失的 `disabled` / `remark` 列，**旧数据行全部保留**，新列取默认值（失效=0、备注=空）；
+- 部署包**已排除 `shortlink.db`**（也不含 `-wal`/`-shm`），正常覆盖不会动到线上数据库；
+- 无论线上是更早的哪个版本（有没有 `disabled`/`remark` 列），这套 `ALTER` 都是**幂等向前兼容**的，升级均不丢数据。
+
+> ⚠️ **唯一会丢数据的情况**：部署时把服务器上的 `database/` 目录删掉、或「先清空目录再解压」——因为库文件不在包里，清空前目录后生产库就真没了。
+
+**安全升级步骤：**
+
+1. **部署前先备份整个 `database/` 目录**（连同 `shortlink.db`、`shortlink.db-wal`、`shortlink.db-shm` 三个文件一起拷走）。项目开了 **WAL 模式**，单独只拷 `.db` 可能缺最新写入，务必三个一起备份。
+2. 用「覆盖 / 合并」方式上传解压——**不要勾选“清空目录再上传”**，**不要删除 `database/`**。
+3. 只需覆盖部署包内的文件即可（关键是 `includes/db.php`、`index.php`、`templates/dashboard.php` 三个，缺一不可）。
+4. 部署完成后浏览器**硬刷新**（Ctrl+Shift+R）避免旧 JS 缓存导致功能异常。
+5. 首次访问会自动补齐字段，已有短链、账号全部照常工作。
+
+---
+
+## 五、关键注意事项（别漏）
 
 | 项目 | 说明 |
 |---|---|
@@ -79,11 +100,11 @@ chmod -R 755 database
 | **`database/` 写权限** | SQLite 建库需要，否则首页报数据库错误 |
 | **改默认密码** | `admin/admin` 仅用于首次登录，生产务必改 |
 | **时区** | 代码已按 `Asia/Shanghai`（北京时间）显示；`created_at` 库内存 UTC，前端按 UTC 解析后显示本地时间，**无需手动处理时区** |
-| **覆盖更新不会丢数据** | 部署包已排除本地 `shortlink.db`，覆盖上传不会覆盖线上数据库 |
+| **覆盖更新不会丢数据** | 部署包已排除本地 `shortlink.db`，按「四、升级」步骤覆盖上传不会覆盖线上数据库 |
 
 ---
 
-## 五、功能说明
+## 六、功能说明
 
 - **创建短链**：填原网址、可选短码、可选有效期（精确到秒）、可选访问上限。
 - **编辑**：带有效期的短链也能正常编辑；编辑保存后会自动将 `disabled` 复位为 0（重新生效）。
@@ -93,7 +114,7 @@ chmod -R 755 database
 
 ---
 
-## 六、数据库说明
+## 七、数据库说明
 
 ### 存储方式
 **账号信息和短链信息都保存在同一个 SQLite 数据库文件中**：`database/shortlink.db`。无需单独安装数据库服务，也无需分开管理。
@@ -123,6 +144,7 @@ chmod -R 755 database
 | `max_visits` | 访问上限；为空表示不限 |
 | `visit_count` | 已访问次数 |
 | `disabled` | 是否失效，`0`=有效，`1`=失效 |
+| `remark` | 备注（列表展示，可编辑） |
 | `created_at` | 创建时间，UTC（由 SQLite `CURRENT_TIMESTAMP` 生成） |
 
 ### 备份与迁移注意事项
@@ -132,9 +154,10 @@ chmod -R 755 database
 
 ---
 
-## 七、常见问题排查
+## 八、常见问题排查
 
 - **登录报“网络错误，请稍后重试”** → 伪静态没配，浏览器拿到 404 HTML 而非 JSON。
 - **点「失效」提示“操作失败”** → 需同时部署 `includes/db.php` + `index.php` + `templates/dashboard.php` 三个文件，`db.php`/`index.php` 缺一不可。
 - **创建时间显示差 8 小时** → 确保部署了含时区修复的版本（`includes/db.php` 顶部有 `date_default_timezone_set('Asia/Shanghai')`，`dashboard.php` 的 `parseDate` 会把无时区时间按 UTC 解析）。
 - **有效期弹窗没有 00:00:00 / 23:59:59 按钮** → 用的是自写弹窗，需确认 `templates/dashboard.php` 为最新版。
+- **升级后功能异常 / 看着像没更新** → 多半是浏览器缓存，按 Ctrl+Shift+R 硬刷新；并确认 `includes/db.php`、`index.php`、`templates/dashboard.php` 三个文件都已覆盖为最新版。
