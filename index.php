@@ -161,6 +161,7 @@ if (str_starts_with($uri, '/api/')) {
                 if (array_key_exists('expires_at', $input)) $updates['expires_at'] = $input['expires_at'] ?: null;
                 if (array_key_exists('max_visits', $input)) $updates['max_visits'] = $input['max_visits'] ? (int)$input['max_visits'] : null;
                 if (array_key_exists('disabled', $input)) $updates['disabled'] = $input['disabled'] ? 1 : 0;
+                if (array_key_exists('remark', $input)) $updates['remark'] = $input['remark'] ?? '';
                 $ok = updateLink($id, $_SESSION['userId'], $updates);
                 if (!$ok) {
                     http_response_code(404);
